@@ -1,0 +1,231 @@
+\documentclass[a4paper,12pt]{article}
+\usepackage{hyperref}
+\usepackage{fancyhdr}
+\usepackage{xcolor}
+\usepackage{tcolorbox}
+\usepackage{listings}
+\usepackage{courier}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage[english]{babel}
+ 
+\usepackage[
+  backend=biber,
+  style=numeric,
+  sorting=ynt
+]{biblatex}
+\addbibresource{reactor.bib}
+\DeclareCaptionFont{blue}{\color{blue}} 
+
+\captionsetup[lstlisting]{labelfont={blue}, textfont={blue}}
+
+\DeclareCaptionFont{white}{\color{white}}
+\DeclareCaptionFormat{listing}{\colorbox[cmyk]{0.43, 0.35, 0.35,0.01}{\parbox{\textwidth}{\hspace{15pt}#1#2#3}}}
+\captionsetup[lstlisting]{format=listing,labelfont=white,textfont=white, singlelinecheck=false, margin=0pt, font={bf,footnotesize}}
+
+\pagestyle{fancy}
+\fancyhf{}
+%\fancyfoot[CE,CO]{\leftmark}
+\lfoot{Circuit Breaker Pattern}
+\rfoot{\thepage}
+\renewcommand{\footrulewidth}{1pt}
+\hypersetup{
+    colorlinks,
+    linkcolor={red!50!black},
+    citecolor={blue!50!black},
+    urlcolor={blue!80!black}
+}
+\graphicspath { {images/} }
+
+\title{Reactive Design Patterns : Circuit Breaker Pattern}
+\author{Cyrille Ngassam Nkwenga}
+\begin{document}
+
+\maketitle
+\tableofcontents
+\lstset{
+    basicstyle=\footnotesize\ttfamily, % Default font
+    %numbers=left,              % Location of line numbers
+    %numberstyle=\tiny,          % Style of line numbers
+    % stepnumber=2,              % Margin between line numbers
+    %numbersep=2pt,              % Margin between line numbers and text
+    tabsize=2,                  % Size of tabs
+    extendedchars=true,
+    breaklines=true,            % Lines will be wrapped
+    %keywordstyle=\color{blue},
+    keywordstyle=\color[HTML]{9b59b6}\bfseries,
+    %frame=b,
+    commentstyle=\color[HTML]{1E88E5},
+    %identifierstyle=\textbf,
+    %keywordstyle=[1]\textbf,
+    %keywordstyle=[2]\textbf,
+    %keywordstyle=[3]\textbf,
+    %keywordstyle=[4]\textbf,   \sqrt{\sqrt{}}
+    stringstyle=\color{red}\ttfamily, % Color of strings
+    showspaces=false,
+    showtabs=false,
+    xleftmargin=17pt,
+    framexleftmargin=17pt,
+    framexrightmargin=5pt,
+    framexbottommargin=4pt,
+    backgroundcolor=\color[HTML]{FAFAFA},
+    showstringspaces=false,
+    language=C++
+}
+
+
+\begin{abstract}
+  \begin{quote}
+    \textit{The circuit breaker pattern is inspired by the field of electrical engineering.
+    The circuit breaker is one of the most important safety mechanism in our home.
+    When in a building, an electrical wiring has too much current flowing through it,
+    this device cut the power, until someone comes and fixes the problem. The circuit breaker 
+    is simple solution to a potentially deadly problem.}
+  \end{quote}
+\end{abstract}
+
+\footnote{Reactive Design Patterns : Circuit Breaker Pattern}
+\section{Description} \label{sec:desc}
+  The circuit breaker apply the same technique from Electrical Engineering to Software by 
+  wrapping dangerous/critical operations with a component that can circumevent calls when 
+  the system is not healthy. Circuit breaker exists to prevent operations rather than reexecutes them.
+  
+  \paragraph{ Circuit breaker function}
+    In the normal \textit{closed} state, the circuit breaker let the request go through as normal.
+    These requets are any calls to the service provided by the component accepting these request.
+    These calls can be subject to timeout or execution failure. If the call was successful, nothing special
+    happens. However if it fails, the circuit breaker makes a note of the failure. Once the number of failures or the 
+    frequency of failures reaches a certains limit, the circuit breaker \textbf{trips} and \textbf{opens} as indicated 
+    in Fig.~\ref{fig:fsm}
+    \label{cbreaker_fsm}
+    \begin{center}
+      \begin{figure}
+      \includegraphics[height=5cm]{cbreaker_fsm}
+      \caption{Circuit Breaker FSM}\label{fig:fsm}
+      
+      \end{figure}
+      
+    \end{center}
+    When the circuit is \textbf{open} any service requests fail immediately, without any attempt to process the request
+    After a defined amount of time, the circuit breaker decides that the next incoming request has a chance of succeeding, it then go into the \textbf{half open} state. In this state  the next incoming call to the circuit breaker 
+    is allowed to execute the potentially dangerous operation. Should the call succeed, the circuit breaker reset and return to the \textbf{closed} state, ready for processing more requests. If the trial call fails, the circuit breaker 
+    return to \textbf{open} state until another timeout elapses.
+    When the circuit breaker is open, every call fails immediately. This should probably be indicated by some type of 
+    exception. To provide good feedback to user, it is useful to throw a different when the circuit is open. This allow
+    the calling code to handle this type of exception differently.
+  \newpage
+   \section{Implementation in C++}
+   Bellow is an example of circuit breaker pattern implemented using C++\footnote{This example is using C++ 17}.
+   
+    The Circuit breaker is using the FSM model described in Fig. \ref{fig:fsm} to adapt its behavior depending on the success of the service component executing the request.
+    
+    
+
+\begin{center}
+  \lstinputlisting[label=lst:cbreakerclass, caption=Circuit Breaker, linerange={46-70}]{code/include/circuitbreaker.h}
+\end{center}
+
+
+\section{Code details}
+\rhead{Code Details : Circuit Breaker Pattern}
+ \lstinputlisting[label=lst:cbreakerctor, linerange={40-50}]{code/src/circuitbreaker.cpp}
+ By default the circuit breaker starts in a closed state. The default time to wait before trying to close the circuit again after it was open is set to 1000ms.
+ 
+ \lstinputlisting[label=lst:cbreakerreset, linerange={57-60}]{code/src/circuitbreaker.cpp}
+ On reset, the circuit breaker set the failure to zero, this means that the circuit breaker will let the next call to the service go through. This method is called by the FSM.
+
+
+\lstinputlisting[label=lst:process_call, linerange={68-73}]{code/src/circuitbreaker.cpp}
+ The client calls \verb+process_request+, which go through the FSM(\verb+current_state+), so that the right action is run depending of the current circuit breaker state .
+ 
+
+\lstinputlisting[label=lst:call,caption=int CircuitBreaker::call(int request), linerange={75-94}]{code/src/circuitbreaker.cpp}
+Let see how this code works:
+
+\lstinputlisting[label=lst:call_1, caption=int CircuitBreaker::call(int request), linerange={78-79}]{code/src/circuitbreaker.cpp}
+
+we are using \verb+ret_future+ to store the future return by \textbf{std::async}. \textbf{std::async} takes the job and run it 
+asynchronously. When the job is finished, it returns whether the result or throws an exception (in case the Service Component encountered a problem) which we get in calling \textbf{std::future::get()}. 
+Since the client is ready to wait for a certain amount of time , \textbf{DEADLINE\_TIME}, a constant define in the header file, we use \textbf{status}(\verb+std::future_status+) to query the status of the \textit{future} return by 
+\textbf{std::async}. 
+
+\lstinputlisting[label=lst:call_2,caption=int CircuitBreaker::call(int request), linerange={80-88}]{code/src/circuitbreaker.cpp}
+We now first check the status of the future to see if the we have a result so we can call \textbf{std::future::get()} on 
+\verb+ret_future+. Since we can have whether a result or the service threw an exception, we put it in a \textbf{try-catch} block. We reset the failure counter and return the computed  result.
+However if an exception were thrown, we save the failure time and the rethrow the exception. The rethrow here is necessary since this is the best to inform the FSM about the failure so it can update the current state( comes later).
+
+\lstinputlisting[label=lst:call_3,caption=int CircuitBreaker::call(int request), linerange={89-92}]{code/src/circuitbreaker.cpp}
+Since we were waiting for the result within a \verb+DEADLINE_TIME+ $\mu$s, it is possible that we were not able to get 
+the result within that deadline, to be sure we have to check against a \textit{timeout} (\verb+std::future_status::timeout+) and throw an exception to inform the FSM about that cituation too.
+
+
+
+\section{FSM Description}
+The circuit breaker works in 3 differents states as stated in section~\nameref{sec:desc}.
+Bellow is an overview the FSM interface : 
+\lstinputlisting[label=lst:fsm,caption=int CircuitBreaker::call(int request), linerange={36-44}]{code/include/circuitbreaker.h}
+
+There are 3 different States implementing this interface : 
+\begin{itemize}
+  \item CircuitBreakerClosed [\textbf{default}]
+  \item CircuitBreakerOpen
+  \item CircuitBreakerHalfOpen
+\end{itemize}
+
+\subsection{CircuitBreakerClosed} \label{subsec:fsm_closed}
+\lstinputlisting[label=lst:fsm_closed_call,caption=int CircuitBreakerClosed::call\_service(int request), linerange={137-157}]{code/src/circuitbreaker.cpp}
+ By default the circuit starts in the closed state. In this state any call to the service goes through (\verb+ cbr->call(request)+). If everything goes well, the result is handeled to the client. However if the service failed, we count howmany time the service have failed until now. If we have reached the failure threshold the circuit breaker \textbf{trip}. We catch the ServiceError and TimeoutError since those are the two known exceptions that might be thrown by \verb+CircuitBreaker::call(int request)+.
+ 
+ \lstinputlisting[label=lst:fsm_closed_trip_reset,caption= trip and reset, linerange={159-168}]{code/src/circuitbreaker.cpp}
+ 
+ On trip, Listing \ref{lst:fsm_closed_trip_reset}, the circuit breaker takes somes actions (\verb+cbr->trip()+) before changing its state to an \textit{open state}.
+ 
+\subsection{CircuitBreakerOpen} \label{subsec:fsm_open}
+\lstinputlisting[label=lst:fsm_open_call,caption=int CircuitBreakerOpen::call\_service(int request), linerange={106-115}]{code/src/circuitbreaker.cpp}
+ 
+ On an open circuit breaker, every call to the service fails fast : after a certain delay ( \verb+CiruitBreaker::time_to_retry+), the circuit breaker changes its state to an \textit{half open state}.
+ 
+ 
+ \subsection{CircuitBreakerHalfOpen} \label{subsec:fsm_halfopen}
+\lstinputlisting[label=lst:fsm_halfopen_call,caption=int CircuitBreakerHalfOpen::call\_service(int request), linerange={179-195}]{code/src/circuitbreaker.cpp}
+ When the circuit breaker is on half open state, it accepts the next incoming service request.
+ If the request succeeds, the circuit reset the failure counter and changes it state back to a closed state and handels the result back to the client. If however the service failed again, the ciruit fails fast and revert back to the open state and throws an exception to inform the client about the error.
+\newpage
+\section{A word on the Service itself } \label{sec:service}
+\lstinputlisting[label=lst:serviceclass,caption=Service Interface, linerange={28-54}]{code/include/service.h}
+
+
+
+\lstinputlisting[label=lst:serviceimpl,caption=Service::process\_request(int), linerange={37-49}]{code/src/service.cpp}
+The service component accept requests from clients through \\
+\verb+Service::process_request(int request)+ returns whether a value when the result an even number is or throws an exception when it is not, as shown in Listing \ref{lst:serviceimpl}
+ 
+
+\section{Usage example} \label{sec:usage}
+
+\lstinputlisting[label=lst:usage,caption=main(), linerange={1-32}]{code/src/main.cpp}
+In this example, the client is sending \verb+MAX_REQUEST+ with a period of \verb+DELAY_100_MS+ ms.
+
+\lstinputlisting[label=lst:usage_creation,caption=main(), linerange={18-19}]{code/src/main.cpp}
+ In Listing \ref{lst:usage_creation} a circuit breaker is created with the service it is protecting.
+ 
+\lstinputlisting[label=lst:usage_consume,caption=main(), linerange={20-30}]{code/src/main.cpp}
+ Then the client starts requesting number located at the position indicated by the variable \textbf{i}.
+ If that number is even, the client consumes it. When that number is not even or the service component could not process 
+ the request within the \verb+DEADLINE_TIME+ (See Listing \ref{lst:call_1}), the client takes appropriate action with \textbf{catch} blocks in the Listing \ref{lst:usage_consume}
+
+
+\section{Summary}
+The Circuit breaker pattern is applicable when two decoupled components communicate and where failures will not travel upstream to infect other components. 
+Decoupling has a cost since all call pass through the circuit breaker and the timeouts need to be scheduled.
+Another note is that, the circuit breaker is meant to fail fast. It must not be used to queue requests and send them later. The problem with this approch is that when the circuit breaker closes, the queued requests will likely overload the targeted service component, which leads to a component oscillating between being unavailable and being overloaded.
+
+
+
+\medskip
+\nocite{*}
+\printbibliography
+\end{document}
